@@ -3,6 +3,7 @@ package com.example.stickynotes
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,8 +17,13 @@ import androidx.compose.material3.TextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import android.content.Context
+import androidx.compose.ui.platform.LocalContext
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -34,9 +40,27 @@ data class Note(
     var content: String
 )
 
+fun saveNotes(context: Context, notes: List<Note>) {
+    val sharedPreferences = context.getSharedPreferences("notes_pref", Context.MODE_PRIVATE)
+    val editor = sharedPreferences.edit()
+    val gson = Gson()
+    val json = gson.toJson(notes)
+    editor.putString("notes_key", json)
+    editor.apply()
+}
+
+fun loadNotes(context: Context): List<Note> {
+    val sharedPreferences = context.getSharedPreferences("notes_pref", Context.MODE_PRIVATE)
+    val gson = Gson()
+    val json = sharedPreferences.getString("notes_key", null)
+    val type = object : TypeToken<List<Note>>() {}.type
+    return gson.fromJson(json, type) ?: emptyList()
+}
+
 @Composable
 fun StickyNotesApp() {
-    var notes by remember { mutableStateOf(listOf<Note>()) }
+    val context = LocalContext.current
+    var notes by remember { mutableStateOf(loadNotes(context)) }
     var newNoteText by remember { mutableStateOf("") }
     var selectedNote by remember { mutableStateOf<Note?>(null) }
     var isDialogOpen by remember { mutableStateOf(false) }
@@ -46,6 +70,7 @@ fun StickyNotesApp() {
             note = selectedNote!!,
             onDismiss = { isDialogOpen = false },
             onSave = {
+                saveNotes(context, notes)
                 isDialogOpen = false
             }
         )
@@ -81,6 +106,7 @@ fun StickyNotesApp() {
                     )
                     notes = notes + newNote
                     newNoteText = ""
+                    saveNotes(context, notes)
                 }
             })
         }
@@ -96,9 +122,13 @@ fun NotesList(notes: List<Note>, onNoteClick: (Note) -> Unit) {
                     .fillMaxWidth()
                     .padding(8.dp)
                     .clickable { onNoteClick(note) },
-                //elevation = 4.dp
+
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(
+                    modifier = Modifier
+                        .background(Color.Yellow)
+                        .padding(16.dp)
+                ) {
                     Text(text = note.content)
                 }
             }
