@@ -127,6 +127,7 @@ fun NotesList(notes: List<Note>, onNoteClick: (Note) -> Unit) {
                 Column(
                     modifier = Modifier
                         .background(Color.Yellow)
+                        .fillMaxSize()
                         .padding(16.dp)
                 ) {
                     Text(text = note.content)
