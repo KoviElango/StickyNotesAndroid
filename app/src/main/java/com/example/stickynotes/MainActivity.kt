@@ -6,8 +6,8 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -18,17 +18,16 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import android.content.Context
-import androidx.compose.ui.platform.LocalContext
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Set the content view to the composable function StickyNotesApp
         setContent {
             StickyNotesApp()
         }
@@ -77,13 +76,12 @@ fun StickyNotesApp() {
     }
 
     Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.SpaceBetween
+        modifier = Modifier.fillMaxSize()
     ) {
         NotesList(notes = notes, onNoteClick = { note ->
             selectedNote = note
             isDialogOpen = true
-        })
+        }, modifier = Modifier.weight(1f))
 
         Column(
             modifier = Modifier
@@ -114,19 +112,24 @@ fun StickyNotesApp() {
 }
 
 @Composable
-fun NotesList(notes: List<Note>, onNoteClick: (Note) -> Unit) {
-    LazyColumn(modifier = Modifier.fillMaxWidth()) {
-        items(notes) { note ->
+fun NotesList(notes: List<Note>, onNoteClick: (Note) -> Unit, modifier: Modifier = Modifier) {
+    val scrollState = rememberScrollState()
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .verticalScroll(scrollState)
+    ) {
+        notes.forEach { note ->
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(8.dp)
                     .clickable { onNoteClick(note) },
-
             ) {
                 Column(
                     modifier = Modifier
-                        .background(Color.Yellow)
+                        .background(Color(0xFFFFCA47))
                         .fillMaxSize()
                         .padding(16.dp)
                 ) {
