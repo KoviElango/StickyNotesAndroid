@@ -24,6 +24,11 @@ import androidx.compose.ui.unit.dp
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import android.content.Context
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -78,24 +83,31 @@ fun StickyNotesApp() {
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
-        NotesList(notes = notes, onNoteClick = { note ->
-            selectedNote = note
-            isDialogOpen = true
-        }, modifier = Modifier.weight(1f))
-
-        Column(
+        NotesList(
+            notes = notes, onNoteClick = { note ->
+                selectedNote = note
+                isDialogOpen = true
+            },
+            onNoteDelete = { note ->
+                notes = notes.filter { it.id != note.id }
+                saveNotes(context, notes)
+            },
+            modifier = Modifier.weight(1f)
+        )
+        Row(
             modifier = Modifier
                 .padding(16.dp)
                 .fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalArrangement = Arrangement.SpaceBetween, // Position items with space between
+            verticalAlignment = Alignment.CenterVertically // Align items vertically to the center
         ) {
             TextField(
                 value = newNoteText,
                 onValueChange = { newNoteText = it },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.weight(1f), // TextField takes available space
                 label = { Text("Enter your note") }
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.width(8.dp)) // Space between TextField and Button
             AddNoteButton(onClick = {
                 if (newNoteText.isNotEmpty()) {
                     val newNote = Note(
@@ -112,7 +124,11 @@ fun StickyNotesApp() {
 }
 
 @Composable
-fun NotesList(notes: List<Note>, onNoteClick: (Note) -> Unit, modifier: Modifier = Modifier) {
+fun NotesList(
+    notes: List<Note>,
+    onNoteClick: (Note) -> Unit,onNoteDelete: (Note) -> Unit,
+    modifier: Modifier = Modifier
+) {
     val scrollState = rememberScrollState()
 
     Column(
@@ -120,20 +136,36 @@ fun NotesList(notes: List<Note>, onNoteClick: (Note) -> Unit, modifier: Modifier
             .fillMaxWidth()
             .verticalScroll(scrollState)
     ) {
-        notes.forEach { note ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp)
-                    .clickable { onNoteClick(note) },
+        notes.forEach {note ->
+            NoteItem(note, onNoteClick, onNoteDelete)
+        }
+    }
+}
+
+@Composable
+fun NoteItem(note: Note, onNoteClick: (Note) -> Unit, onNoteDelete: (Note) -> Unit) {
+    Box(modifier = Modifier
+        .offset(x = 4.dp, y = 4.dp) // Offset the Box containing the Card
+    ) {
+        Card(modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp)
+            .clickable { onNoteClick(note) }
+        ) {
+            Box(modifier = Modifier
+                .background(Color(0xFFFFCA47))
+                .fillMaxWidth()
+                .padding(16.dp)
             ) {
-                Column(
-                    modifier = Modifier
-                        .background(Color(0xFFFFCA47))
-                        .fillMaxSize()
-                        .padding(16.dp)
+                Text(text = note.content)
+                IconButton(
+                    onClick = { onNoteDelete(note) },
+                    modifier = Modifier.align(Alignment.TopEnd)
                 ) {
-                    Text(text = note.content)
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete Note"
+                    )
                 }
             }
         }
@@ -145,11 +177,15 @@ fun AddNoteButton(onClick: () -> Unit) {
     FilledTonalButton(
         onClick = onClick,
         modifier = Modifier
-            .padding(15.dp)
-            .width(120.dp)
-            .height(40.dp)
+            .padding(3.dp)
+            .width(60.dp).height(60.dp),
+        contentPadding = PaddingValues(0.dp)
     ) {
-        Text(text = "Add Note")
+        Icon(
+            imageVector = Icons.Filled.Edit,
+            contentDescription = "Add Note",
+            modifier= Modifier.size(28.dp)
+        )
     }
 }
 
