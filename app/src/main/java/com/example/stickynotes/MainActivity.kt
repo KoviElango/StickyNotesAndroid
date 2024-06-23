@@ -1,34 +1,34 @@
 package com.example.stickynotes
 
 import android.os.Bundle
+import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
-import android.content.Context
+import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import kotlin.math.roundToInt
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -84,12 +84,19 @@ fun StickyNotesApp() {
         modifier = Modifier.fillMaxSize()
     ) {
         NotesList(
-            notes = notes, onNoteClick = { note ->
+            notes = notes,
+            onNoteClick = { note ->
                 selectedNote = note
                 isDialogOpen = true
             },
             onNoteDelete = { note ->
                 notes = notes.filter { it.id != note.id }
+                saveNotes(context, notes)
+            },
+            onMoveNote = { fromIndex, toIndex ->
+                notes = notes.toMutableList().apply {
+                    add(toIndex, removeAt(fromIndex))
+                }
                 saveNotes(context, notes)
             },
             modifier = Modifier.weight(1f)
@@ -98,16 +105,16 @@ fun StickyNotesApp() {
             modifier = Modifier
                 .padding(16.dp)
                 .fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween, // Position items with space between
-            verticalAlignment = Alignment.CenterVertically // Align items vertically to the center
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             TextField(
                 value = newNoteText,
                 onValueChange = { newNoteText = it },
-                modifier = Modifier.weight(1f), // TextField takes available space
+                modifier = Modifier.weight(1f),
                 label = { Text("Enter your note") }
             )
-            Spacer(modifier = Modifier.width(8.dp)) // Space between TextField and Button
+            Spacer(modifier = Modifier.width(8.dp))
             AddNoteButton(onClick = {
                 if (newNoteText.isNotEmpty()) {
                     val newNote = Note(
@@ -126,50 +133,94 @@ fun StickyNotesApp() {
 @Composable
 fun NotesList(
     notes: List<Note>,
-    onNoteClick: (Note) -> Unit,onNoteDelete: (Note) -> Unit,
+    onNoteClick: (Note) -> Unit,
+    onNoteDelete: (Note) -> Unit,
+    onMoveNote: (Int, Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val scrollState = rememberScrollState()
+    val dragState = remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    val dropIndex by remember { derivedStateOf { dragState.value?.second } }
+    val density = LocalDensity.current
+    val itemHeight = with(density) { 30.dp.toPx() }
 
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .verticalScroll(scrollState)
+            .verticalScroll(rememberScrollState())
     ) {
-        notes.forEach {note ->
-            NoteItem(note, onNoteClick, onNoteDelete)
+        notes.forEachIndexed { index, note ->
+            val backgroundColor = if (dragState.value?.first == index) Color.Gray else Color(0xFFFFCA47)
+
+            if (index == dropIndex) {
+                DropCursor()
+            }
+
+            Box(
+                modifier = Modifier
+                    .offset(x = 4.dp, y = 4.dp)
+            ) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp)
+                        .background(backgroundColor)
+                        .pointerInput(Unit) {
+                            detectDragGestures(
+                                onDragStart = {
+                                    dragState.value = index to index
+                                },
+                                onDragEnd = {
+                                    dragState.value = null
+                                },
+                                onDragCancel = {
+                                    dragState.value = null
+                                },
+                                onDrag = { change, dragAmount ->
+                                    change.consume()
+                                    dragState.value?.let { (startIndex, currentIndex) ->
+                                        val targetIndex = (currentIndex + (dragAmount.y / itemHeight).roundToInt()).coerceIn(0, notes.size - 1)
+                                        if (targetIndex != currentIndex) {
+                                            onMoveNote.invoke(currentIndex, targetIndex)
+                                            dragState.value = startIndex to targetIndex
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                        .clickable { onNoteClick(note) },
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .background(Color(0xFFFFCA47))
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(text = note.content, modifier = Modifier.weight(1f))
+                        IconButton(onClick = { onNoteDelete(note) }) {
+                            Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete Note")
+                        }
+                    }
+                }
+            }
+        }
+
+        if (dropIndex == notes.size) {
+            DropCursor()
         }
     }
 }
 
 @Composable
-fun NoteItem(note: Note, onNoteClick: (Note) -> Unit, onNoteDelete: (Note) -> Unit) {
-    Box(modifier = Modifier
-        .offset(x = 4.dp, y = 4.dp) // Offset the Box containing the Card
-    ) {
-        Card(modifier = Modifier
+fun DropCursor() {
+    Box(
+        modifier = Modifier
             .fillMaxWidth()
-            .padding(8.dp)
-            .clickable { onNoteClick(note) }
-        ) {
-            Box(modifier = Modifier
-                .background(Color(0xFFFFCA47))
-                .fillMaxWidth()
-                .padding(16.dp)
-            ) {
-                Text(text = note.content)
-                IconButton(
-                    onClick = { onNoteDelete(note) },
-                    modifier = Modifier.align(Alignment.TopEnd)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Delete Note"
-                    )
-                }
-            }
-        }
-    }
+            .height(2.dp)
+            .background(Color.Black)
+            .padding(vertical = 8.dp)
+    )
 }
 
 @Composable
@@ -178,13 +229,14 @@ fun AddNoteButton(onClick: () -> Unit) {
         onClick = onClick,
         modifier = Modifier
             .padding(3.dp)
-            .width(60.dp).height(60.dp),
+            .width(60.dp)
+            .height(60.dp),
         contentPadding = PaddingValues(0.dp)
     ) {
         Icon(
             imageVector = Icons.Filled.Edit,
             contentDescription = "Add Note",
-            modifier= Modifier.size(28.dp)
+            modifier = Modifier.size(28.dp)
         )
     }
 }
