@@ -6,10 +6,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -19,11 +20,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -131,63 +133,61 @@ fun StickyNotesApp() {
 }
 
 @Composable
-fun NotesList(
-    notes: List<Note>,
-    onNoteClick: (Note) -> Unit,
-    onNoteDelete: (Note) -> Unit,
-    onMoveNote: (Int, Int) -> Unit,
-    modifier: Modifier = Modifier
+fun NotesList(notes: List<Note>,
+              onNoteClick: (Note) -> Unit,
+              onNoteDelete: (Note) -> Unit,
+              onMoveNote: (Int, Int) -> Unit,
+              modifier: Modifier = Modifier
 ) {
-    val dragState = remember { mutableStateOf<Pair<Int, Int>?>(null) }
-    val dropIndex by remember { derivedStateOf { dragState.value?.second } }
     val density = LocalDensity.current
-    val itemHeight = with(density) { 30.dp.toPx() }
+    var draggedIndex by remember { mutableStateOf<Int?>(null) }
+    var offsetY by remember { mutableStateOf(0f) }
+    var targetIndex by remember { mutableStateOf<Int?>(null) }
 
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-    ) {
-        notes.forEachIndexed { index, note ->
-            val backgroundColor = if (dragState.value?.first == index) Color.Gray else Color(0xFFFFCA47)
+    LazyColumn(modifier = modifier.fillMaxWidth()) {
+        items(notes.size, key = { notes[it].id }) { index ->
+            val note = notes[index]
+            var isDragging by remember { mutableStateOf(false) }
 
-            if (index == dropIndex) {
-                DropCursor()
-            }
-
-            Box(
-                modifier = Modifier
-                    .offset(x = 4.dp, y = 4.dp)
+            Column(modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp)
+                .draggable(
+                    state = rememberDraggableState { delta ->
+                        if (draggedIndex == index) {
+                            offsetY += delta
+                        }
+                    },
+                    orientation = Orientation.Vertical,
+                    onDragStarted = { offset ->
+                        draggedIndex = index
+                        isDragging = true
+                        offsetY = offset.y
+                    },
+                    onDragStopped = {
+                        isDragging = false
+                        targetIndex = (offsetY / (with(density) { 64.dp.toPx() })).roundToInt()
+                            .coerceIn(0, notes.size) // Allow dropping at the end
+                        if (draggedIndex != null && targetIndex != draggedIndex) {
+                            onMoveNote(draggedIndex!!, targetIndex!!)}
+                        draggedIndex = null
+                        offsetY = 0f
+                    }
+                )
             ) {
+                if (index == targetIndex) {
+                    DropCursor()
+                }
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(8.dp)
-                        .background(backgroundColor)
-                        .pointerInput(Unit) {
-                            detectDragGestures(
-                                onDragStart = {
-                                    dragState.value = index to index
-                                },
-                                onDragEnd = {
-                                    dragState.value = null
-                                },
-                                onDragCancel = {
-                                    dragState.value = null
-                                },
-                                onDrag = { change, dragAmount ->
-                                    change.consume()
-                                    dragState.value?.let { (startIndex, currentIndex) ->
-                                        val targetIndex = (currentIndex + (dragAmount.y / itemHeight).roundToInt()).coerceIn(0, notes.size - 1)
-                                        if (targetIndex != currentIndex) {
-                                            onMoveNote.invoke(currentIndex, targetIndex)
-                                            dragState.value = startIndex to targetIndex
-                                        }
-                                    }
-                                }
-                            )
-                        }
-                        .clickable { onNoteClick(note) },
+                        .offset { IntOffset(0, offsetY.roundToInt()) }
+                        .clickable { onNoteClick(note) }
+                        .shadow(
+                            elevation = if (isDragging) 8.dp else 2.dp,
+                            spotColor = Color.Gray,
+                            ambientColor = Color.Gray
+                        ),
                 ) {
                     Row(
                         modifier = Modifier
@@ -204,10 +204,9 @@ fun NotesList(
                     }
                 }
             }
-        }
-
-        if (dropIndex == notes.size) {
-            DropCursor()
+            if (targetIndex == notes.size) {
+                DropCursor()
+            }
         }
     }
 }
