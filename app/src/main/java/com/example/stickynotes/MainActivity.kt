@@ -4,6 +4,8 @@ import android.os.Bundle
 import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
@@ -136,18 +138,21 @@ fun StickyNotesApp() {
 fun NotesList(notes: List<Note>,
               onNoteClick: (Note) -> Unit,
               onNoteDelete: (Note) -> Unit,
-              onMoveNote: (Int, Int) -> Unit,
-              modifier: Modifier = Modifier
+              onMoveNote: (Int, Int) -> Unit,modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
     var draggedIndex by remember { mutableStateOf<Int?>(null) }
-    var offsetY by remember { mutableStateOf(0f) }
+    var offsetY by remember { mutableFloatStateOf(0f) }
     var targetIndex by remember { mutableStateOf<Int?>(null) }
 
     LazyColumn(modifier = modifier.fillMaxWidth()) {
         items(notes.size, key = { notes[it].id }) { index ->
             val note = notes[index]
-            var isDragging by remember { mutableStateOf(false) }
+            var isDragging by remember { mutableStateOf(false) }// Animate offsetY
+            val animatedOffsetY by animateFloatAsState(
+                targetValue = offsetY,
+                animationSpec = tween(durationMillis = 150) // Adjust duration as needed
+            )
 
             Column(modifier = Modifier
                 .fillMaxWidth()
@@ -167,21 +172,22 @@ fun NotesList(notes: List<Note>,
                     onDragStopped = {
                         isDragging = false
                         targetIndex = (offsetY / (with(density) { 64.dp.toPx() })).roundToInt()
-                            .coerceIn(0, notes.size) // Allow dropping at the end
+                            .coerceIn(0, notes.size)
                         if (draggedIndex != null && targetIndex != draggedIndex) {
-                            onMoveNote(draggedIndex!!, targetIndex!!)}
+                            onMoveNote(draggedIndex!!, targetIndex!!)
+                        }
                         draggedIndex = null
                         offsetY = 0f
                     }
                 )
-            ) {
+            ){
                 if (index == targetIndex) {
                     DropCursor()
                 }
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .offset { IntOffset(0, offsetY.roundToInt()) }
+                        .offset { IntOffset(0, animatedOffsetY.roundToInt()) } // Use animated offset
                         .clickable { onNoteClick(note) }
                         .shadow(
                             elevation = if (isDragging) 8.dp else 2.dp,

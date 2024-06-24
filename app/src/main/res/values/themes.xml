@@ -2,4 +2,8 @@
 <resources>
 
     <style name="Theme.StickyNotes" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.StickyNotes.SplashScreen" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="postSplashScreenTheme">@style/Theme.StickyNotes</item>
+    </style>
 </resources>
