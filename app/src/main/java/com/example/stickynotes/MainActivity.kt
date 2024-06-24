@@ -32,6 +32,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlin.math.roundToInt
@@ -170,7 +171,6 @@ fun StickyNotesApp() {
         }
     }
 }
-
 @Composable
 fun NotesList(
     notes: List<Note>,
@@ -189,35 +189,46 @@ fun NotesList(
             var isDragging by remember { mutableStateOf(false) }
 
             val animatedOffsetY by animateFloatAsState(
-                targetValue = offsetY,
-                animationSpec = tween(durationMillis = 150)
+                targetValue = if (draggedIndex == index) offsetY else 0f,
+                animationSpec = tween(durationMillis = 100)
             )
 
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp)
-                    .draggable(
-                        state = rememberDraggableState { delta ->
-                            if (draggedIndex == index) {
-                                offsetY += delta
-                            }
-                        },
-                        orientation = Orientation.Vertical,
-                        onDragStarted = {
-                            draggedIndex = index
-                            isDragging = true
-                        },
-                        onDragStopped = {
-                            isDragging = false
-                            targetIndex = (animatedOffsetY / with(density) { 64.dp.toPx() }).roundToInt().coerceIn(0, notes.size - 1)
-                            if (draggedIndex != null && targetIndex != draggedIndex) {
-                                onMoveNote(draggedIndex!!, targetIndex!!)
-                            }
-                            draggedIndex = null
-                            offsetY = 0f
+            val spacing = if (draggedIndex != null && targetIndex != null && index == targetIndex) {
+                with(density) { 20.dp.toPx() }
+            } else {
+                with(density) { 8.dp.toPx() }
+            }
+
+            val elevation = if (isDragging) 8.dp else 2.dp
+
+            Box(modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp)
+                .zIndex(if (isDragging) 1f else 0f)
+                .offset { IntOffset(0, if (draggedIndex == index) animatedOffsetY.roundToInt() else 0) }
+                .draggable(
+                    state = rememberDraggableState { delta ->
+                        if (draggedIndex == index) {
+                            offsetY += delta
+                            targetIndex = (offsetY / with(density) { 20.dp.toPx() }).roundToInt()
+                                .coerceIn(0, notes.size - 1)
                         }
-                    )
+                    },
+                    orientation = Orientation.Vertical,
+                    onDragStarted = {
+                        draggedIndex = index
+                        isDragging = true
+                    },
+                    onDragStopped = {
+                        isDragging = false
+                        if (draggedIndex != null && targetIndex != draggedIndex) {
+                            onMoveNote(draggedIndex!!, targetIndex!!)
+                        }
+                        draggedIndex = null
+                        offsetY = 0f
+                        targetIndex = null
+                    }
+                )
             ) {
                 if (index == targetIndex) {
                     DropCursor()
@@ -226,13 +237,9 @@ fun NotesList(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .offset { IntOffset(0, if (draggedIndex == index) animatedOffsetY.roundToInt() else 0) }
+                        .padding(horizontal = 16.dp)
                         .clickable { onNoteClick(note) }
-                        .shadow(
-                            elevation = if (isDragging) 8.dp else 2.dp,
-                            spotColor = Color.Gray,
-                            ambientColor = Color.Gray
-                        ),
+                        .shadow(elevation = elevation, spotColor = Color.Gray, ambientColor = Color.Gray),
                 ) {
                     Row(
                         modifier = Modifier
@@ -249,10 +256,6 @@ fun NotesList(
                     }
                 }
             }
-
-            if (index == notes.size) {
-                DropCursor()
-            }
         }
     }
 }
@@ -262,11 +265,12 @@ fun DropCursor() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(2.dp)
+            .height(4.dp)
             .background(Color.Black)
             .padding(vertical = 8.dp)
     )
 }
+
 
 @Composable
 fun AddNoteButton(onClick: () -> Unit) {
