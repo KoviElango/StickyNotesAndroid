@@ -171,11 +171,11 @@ fun StickyNotesApp() {
         }
     }
 }
+
 @Composable
 fun NotesList(
     notes: List<Note>,
-    onNoteClick: (Note) -> Unit,
-    onNoteDelete: (Note) -> Unit,
+    onNoteClick: (Note) -> Unit,onNoteDelete: (Note) -> Unit,
     onMoveNote: (Int, Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -190,28 +190,30 @@ fun NotesList(
 
             val animatedOffsetY by animateFloatAsState(
                 targetValue = if (draggedIndex == index) offsetY else 0f,
-                animationSpec = tween(durationMillis = 100)
-            )
+                animationSpec = tween(durationMillis = 100))
 
-            val spacing = if (draggedIndex != null && targetIndex != null && index == targetIndex) {
-                with(density) { 20.dp.toPx() }
+            val spacing = if (draggedIndex != null && targetIndex != null) {
+                if (index == targetIndex) {
+                    with(density) { 20.dp.toPx() }
+                } else {
+                    with(density) { 8.dp.toPx() }
+                }
             } else {
                 with(density) { 8.dp.toPx() }
             }
 
             val elevation = if (isDragging) 8.dp else 2.dp
 
-            Box(modifier = Modifier
+            Column(modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 4.dp)
+                .padding(vertical = with(density) { spacing.toDp() })
                 .zIndex(if (isDragging) 1f else 0f)
                 .offset { IntOffset(0, if (draggedIndex == index) animatedOffsetY.roundToInt() else 0) }
                 .draggable(
                     state = rememberDraggableState { delta ->
                         if (draggedIndex == index) {
                             offsetY += delta
-                            targetIndex = (offsetY / with(density) { 20.dp.toPx() }).roundToInt()
-                                .coerceIn(0, notes.size - 1)
+                            targetIndex = (offsetY / with(density) { 20.dp.toPx() }).roundToInt().coerceIn(0, notes.size - 1)
                         }
                     },
                     orientation = Orientation.Vertical,
@@ -230,8 +232,12 @@ fun NotesList(
                     }
                 )
             ) {
-                if (index == targetIndex) {
-                    DropCursor()
+                if (index == targetIndex && draggedIndex != null) {
+                    Spacer(modifier = Modifier
+                        .fillMaxWidth()
+                        .height(40.dp)
+                        .background(Color.White)
+                    )
                 }
 
                 Card(
@@ -259,18 +265,6 @@ fun NotesList(
         }
     }
 }
-
-@Composable
-fun DropCursor() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(4.dp)
-            .background(Color.Black)
-            .padding(vertical = 8.dp)
-    )
-}
-
 
 @Composable
 fun AddNoteButton(onClick: () -> Unit) {
