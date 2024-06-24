@@ -2,6 +2,8 @@ package com.example.stickynotes
 
 import android.os.Bundle
 import android.content.Context
+import android.media.AudioAttributes
+import android.media.SoundPool
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.core.animateFloatAsState
@@ -13,6 +15,7 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -32,7 +35,6 @@ import androidx.compose.ui.unit.dp
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlin.math.roundToInt
-
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,12 +68,46 @@ fun loadNotes(context: Context): List<Note> {
 }
 
 @Composable
+fun soundEffects(): SoundEffectsState {
+    val context = LocalContext.current
+    val soundPool = remember {
+        SoundPool.Builder()
+            .setMaxStreams(2)
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_GAME)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+            )
+            .build()
+    }
+
+    val popSoundId = remember { soundPool.load(context, R.raw.pop_sound, 1) }
+
+    fun playPopSound() {
+        soundPool.play(popSoundId, 1f, 1f, 0, 0, 1f)
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            soundPool.release()
+        }
+    }
+    return remember { SoundEffectsState(::playPopSound) }
+}
+
+data class SoundEffectsState(
+    val playPopSound: () -> Unit
+)
+
+@Composable
 fun StickyNotesApp() {
     val context = LocalContext.current
     var notes by remember { mutableStateOf(loadNotes(context)) }
     var newNoteText by remember { mutableStateOf("") }
     var selectedNote by remember { mutableStateOf<Note?>(null) }
     var isDialogOpen by remember { mutableStateOf(false) }
+    val soundEffects = soundEffects()
 
     if (isDialogOpen && selectedNote != null) {
         EditNoteDialog(
@@ -128,6 +164,7 @@ fun StickyNotesApp() {
                     notes = notes + newNote
                     newNoteText = ""
                     saveNotes(context, notes)
+                    soundEffects.playPopSound()
                 }
             })
         }
@@ -135,10 +172,12 @@ fun StickyNotesApp() {
 }
 
 @Composable
-fun NotesList(notes: List<Note>,
-              onNoteClick: (Note) -> Unit,
-              onNoteDelete: (Note) -> Unit,
-              onMoveNote: (Int, Int) -> Unit,modifier: Modifier = Modifier
+fun NotesList(
+    notes: List<Note>,
+    onNoteClick: (Note) -> Unit,
+    onNoteDelete: (Note) -> Unit,
+    onMoveNote: (Int, Int) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
     var draggedIndex by remember { mutableStateOf<Int?>(null) }
@@ -146,48 +185,48 @@ fun NotesList(notes: List<Note>,
     var targetIndex by remember { mutableStateOf<Int?>(null) }
 
     LazyColumn(modifier = modifier.fillMaxWidth()) {
-        items(notes.size, key = { notes[it].id }) { index ->
-            val note = notes[index]
-            var isDragging by remember { mutableStateOf(false) }// Animate offsetY
+        itemsIndexed(notes, key = { _, note -> note.id }) { index, note ->
+            var isDragging by remember { mutableStateOf(false) }
+
             val animatedOffsetY by animateFloatAsState(
                 targetValue = offsetY,
-                animationSpec = tween(durationMillis = 150) // Adjust duration as needed
+                animationSpec = tween(durationMillis = 150)
             )
 
-            Column(modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp)
-                .draggable(
-                    state = rememberDraggableState { delta ->
-                        if (draggedIndex == index) {
-                            offsetY += delta
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+                    .draggable(
+                        state = rememberDraggableState { delta ->
+                            if (draggedIndex == index) {
+                                offsetY += delta
+                            }
+                        },
+                        orientation = Orientation.Vertical,
+                        onDragStarted = {
+                            draggedIndex = index
+                            isDragging = true
+                        },
+                        onDragStopped = {
+                            isDragging = false
+                            targetIndex = (animatedOffsetY / with(density) { 64.dp.toPx() }).roundToInt().coerceIn(0, notes.size - 1)
+                            if (draggedIndex != null && targetIndex != draggedIndex) {
+                                onMoveNote(draggedIndex!!, targetIndex!!)
+                            }
+                            draggedIndex = null
+                            offsetY = 0f
                         }
-                    },
-                    orientation = Orientation.Vertical,
-                    onDragStarted = { offset ->
-                        draggedIndex = index
-                        isDragging = true
-                        offsetY = offset.y
-                    },
-                    onDragStopped = {
-                        isDragging = false
-                        targetIndex = (offsetY / (with(density) { 64.dp.toPx() })).roundToInt()
-                            .coerceIn(0, notes.size)
-                        if (draggedIndex != null && targetIndex != draggedIndex) {
-                            onMoveNote(draggedIndex!!, targetIndex!!)
-                        }
-                        draggedIndex = null
-                        offsetY = 0f
-                    }
-                )
-            ){
+                    )
+            ) {
                 if (index == targetIndex) {
                     DropCursor()
                 }
+
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .offset { IntOffset(0, animatedOffsetY.roundToInt()) } // Use animated offset
+                        .offset { IntOffset(0, if (draggedIndex == index) animatedOffsetY.roundToInt() else 0) }
                         .clickable { onNoteClick(note) }
                         .shadow(
                             elevation = if (isDragging) 8.dp else 2.dp,
@@ -210,7 +249,8 @@ fun NotesList(notes: List<Note>,
                     }
                 }
             }
-            if (targetIndex == notes.size) {
+
+            if (index == notes.size) {
                 DropCursor()
             }
         }
