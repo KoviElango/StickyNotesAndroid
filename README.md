@@ -17,5 +17,5 @@ Features
 
 Screenshots:
 
-https://github.com/KoviElango/StickyNotesAndroid/blob/master/Screenshot_20240622-015207.png
-https://github.com/KoviElango/StickyNotesAndroid/blob/master/Screenshot_20240622-015222.png
+https://github.com/KoviElango/StickyNotesAndroid/blob/master/Screenshot_20240625-164830.png
+https://github.com/KoviElango/StickyNotesAndroid/blob/master/Screenshot_20240625-164756.png
