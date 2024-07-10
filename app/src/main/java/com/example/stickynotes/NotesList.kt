@@ -48,7 +48,7 @@ fun NotesList(
 
             val animatedOffsetY by animateFloatAsState(
                 targetValue = if (draggedIndex == index) offsetY else 0f,
-                animationSpec = tween(durationMillis = 100)
+                animationSpec = tween(durationMillis = 100), label = ""
             )
 
             val spacing = if (draggedIndex != null && targetIndex != null) {
