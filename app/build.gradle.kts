@@ -73,4 +73,6 @@ dependencies {
     implementation (libs.androidx.activity.compose.v140)
     implementation(libs.gson)
     implementation (libs.androidx.core.splashscreen)
-    }
+    implementation(libs.androidx.material3.v100alpha01)
+    implementation(libs.androidx.material3.v112)
+}

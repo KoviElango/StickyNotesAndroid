@@ -9,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -16,6 +17,7 @@ import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -25,6 +27,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -36,6 +39,9 @@ import androidx.compose.ui.zIndex
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlin.math.roundToInt
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -122,7 +128,9 @@ fun StickyNotesApp() {
     }
 
     Column(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
     ) {
         NotesList(
             notes = notes,
@@ -152,7 +160,9 @@ fun StickyNotesApp() {
             TextField(
                 value = newNoteText,
                 onValueChange = { newNoteText = it },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(2f)
+                    .clip(RoundedCornerShape(60)),
                 label = { Text("Enter your note") }
             )
             Spacer(modifier = Modifier.width(8.dp))
@@ -208,12 +218,19 @@ fun NotesList(
                 .fillMaxWidth()
                 .padding(vertical = with(density) { spacing.toDp() })
                 .zIndex(if (isDragging) 1f else 0f)
-                .offset { IntOffset(0, if (draggedIndex == index) animatedOffsetY.roundToInt() else 0) }
+                .offset {
+                    IntOffset(
+                        0,
+                        if (draggedIndex == index) animatedOffsetY.roundToInt() else 0
+                    )
+                }
                 .draggable(
                     state = rememberDraggableState { delta ->
                         if (draggedIndex == index) {
                             offsetY += delta
-                            targetIndex = (offsetY / with(density) { 20.dp.toPx() }).roundToInt().coerceIn(0, notes.size - 1)
+                            targetIndex = (offsetY / with(density) { 20.dp.toPx() })
+                                .roundToInt()
+                                .coerceIn(0, notes.size - 1)
                         }
                     },
                     orientation = Orientation.Vertical,
@@ -235,7 +252,7 @@ fun NotesList(
                 if (index == targetIndex && draggedIndex != null) {
                     Spacer(modifier = Modifier
                         .fillMaxWidth()
-                        .height(40.dp)
+                        .height(20.dp)
                         .background(Color.White)
                     )
                 }
@@ -245,19 +262,41 @@ fun NotesList(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
                         .clickable { onNoteClick(note) }
-                        .shadow(elevation = elevation, spotColor = Color.Gray, ambientColor = Color.Gray),
+                        .shadow(
+                            elevation = elevation,
+                            spotColor = Color.Gray,
+                            ambientColor = Color.Gray
+                        ),
                 ) {
-                    Row(
+                    Box(
                         modifier = Modifier
-                            .background(Color(0xFFFFCA47))
                             .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                            .padding(5.dp)
+                            .clip(RoundedCornerShape(10))
+                            .background(Color.White)
                     ) {
-                        Text(text = note.content, modifier = Modifier.weight(1f))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(0.3.dp)
+                                .clip(RoundedCornerShape(5))
+                                .background(Color.Black)
+                        ) {
+                            Row(
+                                modifier= Modifier
+                                    .fillMaxWidth()
+                                    .padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                        Text(text = note.content, modifier = Modifier
+                            .weight(1f)
+                            .padding(16.dp),
+                            color = Color.White)
                         IconButton(onClick = { onNoteDelete(note) }) {
-                            Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete Note")
+                            Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete Note",tint = Color.White)
+                        }
+                    }
                         }
                     }
                 }
@@ -277,7 +316,7 @@ fun AddNoteButton(onClick: () -> Unit) {
         contentPadding = PaddingValues(0.dp)
     ) {
         Icon(
-            imageVector = Icons.Filled.Edit,
+            imageVector = Icons.Filled.Edit, tint = Color.Black,
             contentDescription = "Add Note",
             modifier = Modifier.size(28.dp)
         )
